@@ -3,42 +3,43 @@ import requests
  
 app = Flask(__name__)
  
-# Tu token real
 TOKEN = '7510833304:AAEDIrWS_27AhGxHAnuzvJx3XxXRclhZFuI'
-TELEGRAM_URL = f'https://api.telegram.org/bot{TOKEN}/sendMessage'
+TELEGRAM_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
  
-# Webhook principal
 @app.route('/webhook', methods=['POST'])
 def webhook():
     update = request.get_json()
  
-    if not update or 'message' not in update:
-        return "No content", 200
+    with open("log.txt", "a", encoding="utf-8") as f:
+        f.write("📥 RECIBIDO:\n")
+        f.write(str(update) + "\n\n")
  
-    chat_id = update['message']['chat']['id']
-    message = update['message'].get('text', '').lower()
+    if not update or "message" not in update:
+        return "No data", 200
  
-    # Lógica de respuesta
-    respuesta = "No entendí 🤔. Escribe /start para comenzar."
+    chat_id = update["message"]["chat"]["id"]
+    text = update["message"].get("text", "").lower()
  
-    if message == '/start':
-        respuesta = "👋 ¡Hola! Soy MacroB Bot. Escribe 'hola', 'gracias', o 'quién eres'."
-    elif message == 'hola':
-        respuesta = "¡Hola! 😄 ¿Cómo estás?"
-    elif 'gracias' in message:
-        respuesta = "¡De nada! 🙌"
-    elif 'quién eres' in message or 'quien eres' in message:
-        respuesta = "Soy MacroB Bot, tu asistente virtual en desarrollo 🚀"
+    # Respuesta mínima
+    respuesta = f"Recibí: {text}"
  
-    # Enviar respuesta
-    requests.get(TELEGRAM_URL, params={
-        'chat_id': chat_id,
-        'text': respuesta
+    # Enviar mensaje a Telegram
+    r = requests.get(TELEGRAM_URL, params={
+        "chat_id": chat_id,
+        "text": respuesta
     })
  
+    print("📤 Enviado a Telegram:", r.status_code)
     return "OK", 200
  
-# Ruta para test (opcional)
 @app.route('/', methods=['GET'])
 def index():
-    return "✅ Bot en línea"
+    return "✅ Bot corriendo"
+ 
+@app.route('/log', methods=['GET'])
+def ver_log():
+    try:
+        with open("log.txt", "r", encoding="utf-8") as f:
+            return "<pre>" + f.read() + "</pre>"
+    except:
+        return "Sin logs"
