@@ -8,45 +8,60 @@ TELEGRAM_API_URL = f'https://api.telegram.org/bot{TOKEN}/sendMessage'
  
 @app.route('/', methods=['POST'])
 def webhook():
-    update = request.get_json()
+    print("📥 Webhook recibido")
  
-    # Guardar log (similar a log.txt)
+    update = request.get_json()
+    print(f"📦 Contenido recibido: {update}")
+ 
+    # Guardar log para Render Free
     with open('log.txt', 'a', encoding='utf-8') as log_file:
+        log_file.write("📥 Webhook recibido\n")
         log_file.write(str(update) + '\n')
  
-    if "message" in update:
-        chat_id = update["message"]["chat"]["id"]
-        message = update["message"].get("text", "").lower()
+    if not update:
+        print("⚠️ No se recibió un JSON válido")
+        return "No JSON", 400
  
-        # Respuesta por defecto
-        respuesta = "No entendí eso 🤔. Escribe /start para comenzar."
+    if "message" not in update:
+        print("⚠️ JSON recibido sin 'message'")
+        return "No message", 200
  
-        # Respuestas más naturales y amigables
-        if message == "/start":
-            respuesta = (
-                "¡Hola! 👋 Soy MacroB Bot 🤖.\n"
-                "Estoy aquí para ayudarte. Puedes decirme cosas como:\n"
-                "• hola\n"
-                "• gracias\n"
-                "• ¿quién eres?\n"
-                "Y te responderé 😉"
-            )
-        elif message == "hola":
-            respuesta = "¡Hola! 😄 ¿En qué puedo ayudarte hoy?"
-        elif "gracias" in message:
-            respuesta = "¡De nada! Estoy para ayudarte 😊"
-        elif "quién eres" in message or "quien eres" in message:
-            respuesta = "Soy MacroB Bot, un bot en desarrollo 🛠️. ¡Pero ya puedo conversar contigo!"
+    chat_id = update["message"]["chat"]["id"]
+    message = update["message"].get("text", "").lower()
+    print(f"💬 Mensaje recibido: {message}")
  
-        # Enviar respuesta a Telegram
-        requests.get(TELEGRAM_API_URL, params={
+    respuesta = "No entendí eso 🤔. Escribe /start para comenzar."
+ 
+    # Respuestas personalizadas
+    if message == "/start":
+        respuesta = (
+            "¡Hola! 👋 Soy MacroB Bot 🤖.\n"
+            "Estoy aquí para ayudarte. Puedes decirme cosas como:\n"
+            "• hola\n"
+            "• gracias\n"
+            "• ¿quién eres?\n"
+            "¡Y te responderé con gusto! 😉"
+        )
+    elif message == "hola":
+        respuesta = "¡Hola! 😄 ¿En qué puedo ayudarte hoy?"
+    elif "gracias" in message:
+        respuesta = "¡De nada! Estoy para ayudarte 😊"
+    elif "quién eres" in message or "quien eres" in message:
+        respuesta = "Soy MacroB Bot, un bot en desarrollo 🛠️. ¡Pero ya puedo conversar contigo!"
+ 
+    # Enviar mensaje
+    try:
+        response = requests.get(TELEGRAM_API_URL, params={
             "chat_id": chat_id,
             "text": respuesta
         })
+        print(f"✅ Mensaje enviado. Status: {response.status_code}")
+    except Exception as e:
+        print(f"❌ Error al enviar mensaje: {e}")
  
     return "OK", 200
  
-# Ruta para revisar log desde navegador
+# Ruta para ver logs desde navegador
 @app.route('/log', methods=['GET'])
 def ver_log():
     try:
@@ -55,7 +70,10 @@ def ver_log():
     except FileNotFoundError:
         return "No hay log aún."
  
-# Solo usado si corres localmente (en Render, se usa gunicorn)
+# Test GET para confirmar que el servidor levanta
+@app.route('/', methods=['GET'])
+def index():
+    return "✅ MacroB Bot está corriendo correctamente"
+ 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=10000)
- 
