@@ -17,8 +17,17 @@ def webhook():
         chat_id = update["message"]["chat"]["id"]
         text = update["message"].get("text", "").lower()
 
-        reply = f"✅ Recibido: {text}"
+        # Lógica para responder automáticamente según el mensaje
+        if 'hola' in text:
+            reply = "¡Hola! ¿Cómo puedo ayudarte hoy? 🤖"
+        elif 'ayuda' in text:
+            reply = "¡Claro! Puedo responder tus preguntas. ¿Qué necesitas saber?"
+        elif 'adiós' in text:
+            reply = "¡Hasta luego! ¡Que tengas un buen día! 👋"
+        else:
+            reply = "✅ Recibido: " + text
 
+        # Enviar respuesta
         requests.get(TELEGRAM_API, params={
             "chat_id": chat_id,
             "text": reply
