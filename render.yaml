@@ -1,0 +1,9 @@
+
+services:
+  - type: web
+    name: macrob-bot
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn bot:app"
+    plan: free
+    autoDeploy: true
