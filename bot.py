@@ -1,4 +1,3 @@
-
 from flask import Flask, request
 import requests
 
@@ -7,7 +6,7 @@ app = Flask(__name__)
 TOKEN = '7510833304:AAEDIrWS_27AhGxHAnuzvJx3XxXRclhZFuI'
 TELEGRAM_API = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 
-@app.route('/webhook', methods=['POST'])
+@app.route('/webhook', methods=['POST'])  # Cambiado a POST
 def webhook():
     update = request.get_json()
 
@@ -38,3 +37,4 @@ def log():
             return "<pre>" + f.read() + "</pre>"
     except:
         return "Sin logs aún."
+
