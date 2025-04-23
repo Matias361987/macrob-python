@@ -1,49 +1,51 @@
 from flask import Flask, request
 import requests
+import openai
 
 app = Flask(__name__)
 
-TOKEN = '7510833304:AAEDIrWS_27AhGxHAnuzvJx3XxXRclhZFuI'
-TELEGRAM_API = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+# Token de Telegram
+TELEGRAM_TOKEN = '7510833304:AAEDIrWS_27AhGxHAnuzvJx3XxXRclhZFuI'
+TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
 
-@app.route('/webhook', methods=['POST'])  # Cambiado a POST
+# Token de OpenAI (REEMPLAZA ESTO CON TU TOKEN REAL)
+openai.api_key = "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"
+
+@app.route('/')
+def home():
+    return "🤖 MacroBot + ChatGPT activo"
+
+@app.route('/webhook', methods=['POST'])
 def webhook():
-    update = request.get_json()
+    data = request.get_json()
 
-    with open("log.txt", "a", encoding="utf-8") as f:
-        f.write("📥 Update:\n" + str(update) + "\n\n")
+    if "message" in data:
+        chat_id = data["message"]["chat"]["id"]
+        text = data["message"].get("text", "")
 
-    if update and "message" in update:
-        chat_id = update["message"]["chat"]["id"]
-        text = update["message"].get("text", "").lower()
+        # Obtener respuesta desde ChatGPT
+        respuesta = chatgpt(text)
 
-        # Lógica para responder automáticamente según el mensaje
-        if 'hola' in text:
-            reply = "¡Hola! ¿Cómo puedo ayudarte hoy? 🤖"
-        elif 'ayuda' in text:
-            reply = "¡Claro! Puedo responder tus preguntas. ¿Qué necesitas saber?"
-        elif 'adiós' in text:
-            reply = "¡Hasta luego! ¡Que tengas un buen día! 👋"
-        else:
-            reply = "✅ Recibido: " + text
-
-        # Enviar respuesta
-        requests.get(TELEGRAM_API, params={
+        # Enviar respuesta a Telegram
+        requests.post(TELEGRAM_API, json={
             "chat_id": chat_id,
-            "text": reply
+            "text": respuesta
         })
 
     return "OK", 200
 
-@app.route('/')
-def index():
-    return "🤖 MacroBot está vivo"
-
-@app.route('/log')
-def log():
+def chatgpt(pregunta):
     try:
-        with open("log.txt", "r", encoding="utf-8") as f:
-            return "<pre>" + f.read() + "</pre>"
-    except:
-        return "Sin logs aún."
+        respuesta = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres un asistente útil y simpático."},
+                {"role": "user", "content": pregunta}
+            ]
+        )
+        return respuesta.choices[0].message.content.strip()
+    except Exception as e:
+        return f"⚠️ Error al consultar ChatGPT: {e}"
+
+
 
