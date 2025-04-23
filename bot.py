@@ -68,7 +68,7 @@ def webhook():
         # Si es una respuesta a una pregunta
         elif "callback_query" in update:
             callback_data = update["callback_query"]["data"]
-            correct_answer = questions[0]["correct"]
+            correct_answer = next(q["correct"] for q in questions if q["question"] == update["callback_query"]["message"]["text"])
 
             # Verifica si la respuesta es correcta
             if callback_data == correct_answer:
@@ -86,42 +86,11 @@ def webhook():
 
 @app.route('/')
 def index():
-    return "🤖 MacroBot está vivo"
-
-if __name__ == '__main__':
-    app.run(debug=True)
-
-    # Obtenemos el chat_id y el mensaje
-    if update and "message" in update:
-        chat_id = update["message"]["chat"]["id"]
-        text = update["message"].get("text", "").lower()
-
-        if text == "/start":
-            # Saludo inicial y pregunta inicial
-            send_message(chat_id, "¡Hola! Soy tu bot de quiz. ¿Listo para comenzar?")
-            send_message(chat_id, "Responde a la siguiente pregunta:")
-
-            # Elegimos una pregunta aleatoria
-            question = random.choice(quiz)
-            send_message(chat_id, question["question"])
-
-            # Guardamos la respuesta correcta en el chat_id
-            # (Lo harías mejor con una base de datos, pero lo simplificamos aquí)
-            send_message(chat_id, f"Respuesta correcta: {question['answer']}")
-
-        elif text in [item["answer"] for item in quiz]:
-            send_message(chat_id, "¡Correcto! Bien hecho.")
-        else:
-            send_message(chat_id, "Lo siento, la respuesta es incorrecta. Inténtalo de nuevo.")
-
-    return "OK", 200
-
-@app.route('/')
-def index():
     return "🤖 ¡El bot de preguntas está funcionando!"
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
 
