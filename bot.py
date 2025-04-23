@@ -8,88 +8,85 @@ app = Flask(__name__)
 TELEGRAM_TOKEN = '7510833304:AAEDIrWS_27AhGxHAnuzvJx3XxXRclhZFuI'
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 
-# Lista de preguntas y respuestas
+# Lista de preguntas
 questions = [
-    {
-        "question": "¿Cuál es la capital de Francia?",
-        "answers": ["Madrid", "París", "Roma"],
-        "correct": "París"
-    },
-    {
-        "question": "¿En qué año llegó el hombre a la luna?",
-        "answers": ["1965", "1969", "1972"],
-        "correct": "1969"
-    },
-    {
-        "question": "¿Cuál es el planeta más cercano al sol?",
-        "answers": ["Mercurio", "Venus", "Tierra"],
-        "correct": "Mercurio"
-    }
+    {"question": "¿Cuál es la capital de Francia?", "answers": ["Madrid", "París", "Roma"], "correct": "París"},
+    {"question": "¿En qué año llegó el hombre a la luna?", "answers": ["1965", "1969", "1972"], "correct": "1969"},
+    {"question": "¿Cuál es el planeta más cercano al sol?", "answers": ["Mercurio", "Venus", "Tierra"], "correct": "Mercurio"},
+    {"question": "¿Quién escribió 'Cien años de soledad'?", "answers": ["Borges", "García Márquez", "Cortázar"], "correct": "García Márquez"},
+    {"question": "¿Cuántos lados tiene un hexágono?", "answers": ["5", "6", "8"], "correct": "6"},
+    {"question": "¿Qué gas respiramos para vivir?", "answers": ["Dióxido de carbono", "Oxígeno", "Hidrógeno"], "correct": "Oxígeno"},
+    {"question": "¿Cuál es el océano más grande?", "answers": ["Atlántico", "Índico", "Pacífico"], "correct": "Pacífico"},
 ]
 
-# Función para generar botones de respuesta
+# Guardamos preguntas por chat (temporalmente)
+user_state = {}
+
+def send_message(chat_id, text, reply_markup=None):
+    data = {"chat_id": chat_id, "text": text}
+    if reply_markup:
+        data["reply_markup"] = reply_markup
+    requests.post(f"{TELEGRAM_API}/sendMessage", json=data)
+
 def create_buttons(answers):
-    return [{"text": answer, "callback_data": answer} for answer in answers]
+    return [[{"text": ans, "callback_data": ans}] for ans in answers]
+
+def send_question(chat_id):
+    question = random.choice(questions)
+    user_state[chat_id] = question  # Guardamos la pregunta actual
+
+    keyboard = {"inline_keyboard": create_buttons(question["answers"])}
+    send_message(chat_id, question["question"], reply_markup=keyboard)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
     update = request.get_json()
-    print(update)  # Para depuración
 
-    # Si es un mensaje normal
     if "message" in update:
         chat_id = update["message"]["chat"]["id"]
         text = update["message"].get("text", "")
 
         if text == "/start":
-            question = random.choice(questions)
-            question_text = question["question"]
-            answers = question["answers"]
+            send_message(chat_id, "¡Hola! Vamos a jugar una trivia 🎉")
+            send_question(chat_id)
 
-            keyboard = {
-                "inline_keyboard": [create_buttons(answers)]
-            }
-
-            requests.post(f"{TELEGRAM_API}/sendMessage", json={
-                "chat_id": chat_id,
-                "text": question_text,
-                "reply_markup": keyboard
-            })
-
-    # Si es una respuesta (callback query)
     elif "callback_query" in update:
-        callback = update["callback_query"]
-        callback_data = callback["data"]
-        chat_id = callback["message"]["chat"]["id"]
-        question_text = callback["message"]["text"]
+        query = update["callback_query"]
+        chat_id = query["message"]["chat"]["id"]
+        answer = query["data"]
 
-        # Responder al callback (obligatorio)
-        requests.post(f"{TELEGRAM_API}/answerCallbackQuery", json={
-            "callback_query_id": callback["id"]
-        })
+        correct = user_state.get(chat_id, {}).get("correct", "")
+        if answer == correct:
+            response = "¡Correcto! 🎉"
+        else:
+            response = f"¡Incorrecto! 😞 La respuesta era: {correct}"
 
-        # Buscar la pregunta y la respuesta correcta
-        correct_answer = next((q["correct"] for q in questions if q["question"] == question_text), None)
+        # Preguntar si quiere seguir
+        followup_keyboard = {
+            "inline_keyboard": [
+                [{"text": "Sí", "callback_data": "jugar_otra"}],
+                [{"text": "No", "callback_data": "fin"}]
+            ]
+        }
 
-        if correct_answer:
-            if callback_data == correct_answer:
-                response_text = "✅ ¡Correcto!"
-            else:
-                response_text = "❌ ¡Incorrecto!"
+        send_message(chat_id, response)
+        send_message(chat_id, "¿Quieres otra pregunta?", reply_markup=followup_keyboard)
 
-            requests.post(f"{TELEGRAM_API}/sendMessage", json={
-                "chat_id": chat_id,
-                "text": response_text
-            })
+    elif "callback_query" in update:
+        query = update["callback_query"]
+        chat_id = query["message"]["chat"]["id"]
+        data = query["data"]
+
+        if data == "jugar_otra":
+            send_question(chat_id)
+        elif data == "fin":
+            send_message(chat_id, "¡Gracias por jugar! 👋")
 
     return "OK", 200
 
 @app.route('/')
 def index():
-    return "🤖 ¡El bot de preguntas está funcionando!"
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    return "🤖 ¡El bot de trivia está activo!"
 
 
 
