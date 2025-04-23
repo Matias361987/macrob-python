@@ -19,7 +19,7 @@ questions = [
     {"question": "¿Cuál es el océano más grande?", "answers": ["Atlántico", "Índico", "Pacífico"], "correct": "Pacífico"},
 ]
 
-# Guardamos preguntas por chat (temporalmente)
+# Estado del usuario
 user_state = {}
 
 def send_message(chat_id, text, reply_markup=None):
@@ -33,7 +33,7 @@ def create_buttons(answers):
 
 def send_question(chat_id):
     question = random.choice(questions)
-    user_state[chat_id] = question  # Guardamos la pregunta actual
+    user_state[chat_id] = question  # Guardamos pregunta actual
 
     keyboard = {"inline_keyboard": create_buttons(question["answers"])}
     send_message(chat_id, question["question"], reply_markup=keyboard)
@@ -53,34 +53,30 @@ def webhook():
     elif "callback_query" in update:
         query = update["callback_query"]
         chat_id = query["message"]["chat"]["id"]
-        answer = query["data"]
-
-        correct = user_state.get(chat_id, {}).get("correct", "")
-        if answer == correct:
-            response = "¡Correcto! 🎉"
-        else:
-            response = f"¡Incorrecto! 😞 La respuesta era: {correct}"
-
-        # Preguntar si quiere seguir
-        followup_keyboard = {
-            "inline_keyboard": [
-                [{"text": "Sí", "callback_data": "jugar_otra"}],
-                [{"text": "No", "callback_data": "fin"}]
-            ]
-        }
-
-        send_message(chat_id, response)
-        send_message(chat_id, "¿Quieres otra pregunta?", reply_markup=followup_keyboard)
-
-    elif "callback_query" in update:
-        query = update["callback_query"]
-        chat_id = query["message"]["chat"]["id"]
         data = query["data"]
 
+        # Verificar si es respuesta o comando de flujo
         if data == "jugar_otra":
             send_question(chat_id)
         elif data == "fin":
             send_message(chat_id, "¡Gracias por jugar! 👋")
+        else:
+            correct = user_state.get(chat_id, {}).get("correct", "")
+            if data == correct:
+                response = "¡Correcto! 🎉"
+            else:
+                response = f"¡Incorrecto! 😞 La respuesta era: {correct}"
+
+            # Preguntar si quiere seguir
+            followup_keyboard = {
+                "inline_keyboard": [
+                    [{"text": "Sí", "callback_data": "jugar_otra"}],
+                    [{"text": "No", "callback_data": "fin"}]
+                ]
+            }
+
+            send_message(chat_id, response)
+            send_message(chat_id, "¿Quieres otra pregunta?", reply_markup=followup_keyboard)
 
     return "OK", 200
 
