@@ -1,26 +1,37 @@
 from flask import Flask, request
 import requests
-import random
 
 app = Flask(__name__)
 
-# Token de Telegram
+# TOKEN DE TELEGRAM (reemplázalo por tu token real)
 TELEGRAM_TOKEN = '7510833304:AAEDIrWS_27AhGxHAnuzvJx3XxXRclhZFuI'
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 
-# Lista de preguntas
-questions = [
-    {"question": "¿Cuál es la capital de Francia?", "answers": ["Madrid", "París", "Roma"], "correct": "París"},
-    {"question": "¿En qué año llegó el hombre a la luna?", "answers": ["1965", "1969", "1972"], "correct": "1969"},
-    {"question": "¿Cuál es el planeta más cercano al sol?", "answers": ["Mercurio", "Venus", "Tierra"], "correct": "Mercurio"},
-    {"question": "¿Quién escribió 'Cien años de soledad'?", "answers": ["Borges", "García Márquez", "Cortázar"], "correct": "García Márquez"},
-    {"question": "¿Cuántos lados tiene un hexágono?", "answers": ["5", "6", "8"], "correct": "6"},
-    {"question": "¿Qué gas respiramos para vivir?", "answers": ["Dióxido de carbono", "Oxígeno", "Hidrógeno"], "correct": "Oxígeno"},
-    {"question": "¿Cuál es el océano más grande?", "answers": ["Atlántico", "Índico", "Pacífico"], "correct": "Pacífico"},
-]
-
-# Estado del usuario
+# Base de datos temporal en memoria
 user_state = {}
+
+# Lecciones y preguntas
+lessons = [
+    {
+        "title": "Clase 1: ¿Qué es Python?",
+        "content": "Python es un lenguaje de programación de alto nivel, interpretado y de propósito general. Es famoso por su sintaxis simple y legibilidad.",
+        "question": {
+            "text": "¿Qué tipo de lenguaje es Python?",
+            "options": ["Compilado", "Interpretado", "Ensamblador"],
+            "correct": "Interpretado"
+        }
+    },
+    {
+        "title": "Clase 2: Variables y Tipos de Datos",
+        "content": "En Python, puedes crear variables sin declarar su tipo. Ejemplo: `nombre = 'Juan'` o `edad = 30`.",
+        "question": {
+            "text": "¿Qué tipo de dato es `True` en Python?",
+            "options": ["String", "Booleano", "Entero"],
+            "correct": "Booleano"
+        }
+    },
+    # Puedes seguir agregando más clases aquí
+]
 
 def send_message(chat_id, text, reply_markup=None):
     data = {"chat_id": chat_id, "text": text}
@@ -28,15 +39,19 @@ def send_message(chat_id, text, reply_markup=None):
         data["reply_markup"] = reply_markup
     requests.post(f"{TELEGRAM_API}/sendMessage", json=data)
 
-def create_buttons(answers):
-    return [[{"text": ans, "callback_data": ans}] for ans in answers]
+def create_buttons(options):
+    return [[{"text": opt, "callback_data": opt}] for opt in options]
 
-def send_question(chat_id):
-    question = random.choice(questions)
-    user_state[chat_id] = question  # Guardamos pregunta actual
-
-    keyboard = {"inline_keyboard": create_buttons(question["answers"])}
-    send_message(chat_id, question["question"], reply_markup=keyboard)
+def send_lesson(chat_id, index):
+    if index >= len(lessons):
+        send_message(chat_id, "🎉 ¡Felicidades! Has completado todas las clases.")
+        return
+    lesson = lessons[index]
+    user_state[chat_id] = {"lesson": index}
+    send_message(chat_id, f"{lesson['title']}\n\n{lesson['content']}")
+    question = lesson["question"]
+    keyboard = {"inline_keyboard": create_buttons(question["options"])}
+    send_message(chat_id, f"🧠 Pregunta: {question['text']}", reply_markup=keyboard)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -47,42 +62,31 @@ def webhook():
         text = update["message"].get("text", "")
 
         if text == "/start":
-            send_message(chat_id, "¡Hola! Vamos a jugar una trivia 🎉")
-            send_question(chat_id)
+            send_message(chat_id, "👨‍🏫 ¡Bienvenido al curso de Python básico!")
+            send_lesson(chat_id, 0)
 
     elif "callback_query" in update:
         query = update["callback_query"]
         chat_id = query["message"]["chat"]["id"]
         data = query["data"]
+        state = user_state.get(chat_id, {})
+        lesson_index = state.get("lesson", 0)
+        lesson = lessons[lesson_index]
+        correct_answer = lesson["question"]["correct"]
 
-        # Verificar si es respuesta o comando de flujo
-        if data == "jugar_otra":
-            send_question(chat_id)
-        elif data == "fin":
-            send_message(chat_id, "¡Gracias por jugar! 👋")
+        if data == correct_answer:
+            send_message(chat_id, "✅ ¡Correcto! Pasando a la siguiente lección...")
+            send_lesson(chat_id, lesson_index + 1)
         else:
-            correct = user_state.get(chat_id, {}).get("correct", "")
-            if data == correct:
-                response = "¡Correcto! 🎉"
-            else:
-                response = f"¡Incorrecto! 😞 La respuesta era: {correct}"
-
-            # Preguntar si quiere seguir
-            followup_keyboard = {
-                "inline_keyboard": [
-                    [{"text": "Sí", "callback_data": "jugar_otra"}],
-                    [{"text": "No", "callback_data": "fin"}]
-                ]
-            }
-
-            send_message(chat_id, response)
-            send_message(chat_id, "¿Quieres otra pregunta?", reply_markup=followup_keyboard)
+            send_message(chat_id, f"❌ Incorrecto. La respuesta correcta era: {correct_answer}")
+            send_message(chat_id, "🧠 Vamos a repetir la lección.")
+            send_lesson(chat_id, lesson_index)
 
     return "OK", 200
 
 @app.route('/')
 def index():
-    return "🤖 ¡El bot de trivia está activo!"
+    return "🤖 El bot profesor de Python está activo"
 
 
 
